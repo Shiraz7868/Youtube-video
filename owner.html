@@ -7,66 +7,110 @@
     <!-- Supabase Library v2 ko import kiya gaya hai -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; }
-        h1 { text-align: center; }
+        body { font-family: 'Poppins', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        h1 { text-align: center; color: #1c1e21; }
+        #controls { text-align: center; margin-bottom: 20px; }
+        #clear-btn { background-color: #ff4d4f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+        #clear-btn:hover { background-color: #d63335; }
         #image-gallery { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-        .img-container { border: 2px solid #ddd; padding: 5px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        img { max-width: 300px; display: block; }
-        p { text-align: center; }
+        .img-container { position: relative; border: 1px solid #ddd; padding: 5px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+        .img-container img { max-width: 320px; display: block; border-radius: 4px; }
+        .img-timestamp { position: absolute; bottom: 5px; left: 5px; background-color: rgba(0, 0, 0, 0.6); color: white; padding: 3px 6px; font-size: 12px; border-radius: 4px; }
+        .no-images { font-size: 18px; color: #666; text-align: center; width: 100%; margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <h1>Captured Images Panel (Live)</h1>
+    <div id="controls">
+        <button id="clear-btn">Clear All Images</button>
+    </div>
     <div id="image-gallery">
-        <p>Listening for new images...</p>
+        <p class="no-images">Listening for new images...</p>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
         
-        // Sahi tareeqa Supabase client banane ka
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const gallery = document.getElementById('image-gallery');
 
-        function displayImage(imageData) {
-            if (!imageData) return;
+        // Function to display an image with timestamp
+        function displayImage(imageObject) {
+            if (!imageObject || !imageObject.image_data) return;
+            
+            // "Listening..." message ko hatayein
+            const noImagesMessage = gallery.querySelector('.no-images');
+            if (noImagesMessage) {
+                noImagesMessage.remove();
+            }
+
             const imgContainer = document.createElement('div');
             imgContainer.className = 'img-container';
+            
             const imgElement = document.createElement('img');
-            imgElement.src = imageData;
+            imgElement.src = imageObject.image_data;
+            
+            const timestamp = new Date(imageObject.created_at).toLocaleString();
+            const timestampElement = document.createElement('div');
+            timestampElement.className = 'img-timestamp';
+            timestampElement.textContent = timestamp;
+
             imgContainer.appendChild(imgElement);
-            gallery.prepend(imgContainer);
+            imgContainer.appendChild(timestampElement);
+            
+            gallery.prepend(imgContainer); // Nayi tasveer sab se upar dikhayein
         }
 
+        // Function to load existing images
         async function loadInitialImages() {
-            const { data, error } = await supabaseClient // Yahan 'supabaseClient' istemal kiya
+            const { data, error } = await supabaseClient
                 .from('images')
-                .select('image_data')
+                .select('image_data, created_at')
                 .order('created_at', { ascending: false });
+                
             if (error) {
                 console.error('Error loading images:', error);
                 return;
             }
-            if (data.length > 0) {
-                 gallery.innerHTML = '';
+            if (data && data.length > 0) {
+                 gallery.innerHTML = ''; // Sirf tab saaf karein jab data ho
+                 data.forEach(item => displayImage(item));
             }
-            data.forEach(item => displayImage(item.image_data));
         }
 
-        function handleInserts(payload) {
+        // Function to handle new images
+        function handleNewImage(payload) {
             console.log('New image received!', payload);
-            if (gallery.querySelector('p')) {
-                gallery.innerHTML = ''; // Pehli tasveer aane par "Listening..." wala message hatayein
-            }
-            displayImage(payload.new.image_data);
+            displayImage(payload.new);
         }
 
         // Live naye images ke liye listen karein
         supabaseClient.channel('images')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleInserts)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleNewImage)
             .subscribe();
+        
+        // Function to clear all images
+        async function clearAllImages() {
+            const confirmed = confirm("Are you sure you want to delete ALL images? This action cannot be undone.");
+            if (confirmed) {
+                console.log("Deleting all images...");
+                const { error } = await supabaseClient
+                    .from('images')
+                    .delete()
+                    .neq('id', 0); // Delete all rows
+
+                if (error) {
+                    alert("Error deleting images: " + error.message);
+                } else {
+                    alert("All images deleted successfully.");
+                    gallery.innerHTML = '<p class="no-images">All images have been cleared. Listening for new ones...</p>';
+                }
+            }
+        }
+
+        document.getElementById('clear-btn').addEventListener('click', clearAllImages);
         
         // Page load hotay hi purani tasveerein load karein
         loadInitialImages();
