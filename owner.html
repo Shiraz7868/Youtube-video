@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Owner's Panel - Captured Images</title>
-    <!-- Supabase Library ko import kiya gaya hai -->
+    <!-- Supabase Library v2 ko import kiya gaya hai -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; }
@@ -23,11 +23,11 @@
     </div>
 
     <script>
-        // <<< AAPKI URL AUR KEY YAHAN BHI ADD KAR DI GAYI HAIN >>>
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Sahi tareeqa Supabase client banane ka
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const gallery = document.getElementById('image-gallery');
 
         function displayImage(imageData) {
@@ -37,28 +37,35 @@
             const imgElement = document.createElement('img');
             imgElement.src = imageData;
             imgContainer.appendChild(imgElement);
-            gallery.prepend(imgContainer); // Nayi tasveer sab se upar dikhayein
+            gallery.prepend(imgContainer);
         }
 
         async function loadInitialImages() {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient // Yahan 'supabaseClient' istemal kiya
                 .from('images')
                 .select('image_data')
-                .order('created_at', { ascending: false }); // Sab se nayi pehle
+                .order('created_at', { ascending: false });
             if (error) {
                 console.error('Error loading images:', error);
                 return;
             }
-            gallery.innerHTML = ''; // Loading message ko saaf karein
+            if (data.length > 0) {
+                 gallery.innerHTML = '';
+            }
             data.forEach(item => displayImage(item.image_data));
         }
 
+        function handleInserts(payload) {
+            console.log('New image received!', payload);
+            if (gallery.querySelector('p')) {
+                gallery.innerHTML = ''; // Pehli tasveer aane par "Listening..." wala message hatayein
+            }
+            displayImage(payload.new.image_data);
+        }
+
         // Live naye images ke liye listen karein
-        const channel = supabase.channel('any')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, payload => {
-                console.log('New image received!', payload);
-                displayImage(payload.new.image_data);
-            })
+        supabaseClient.channel('images')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleInserts)
             .subscribe();
         
         // Page load hotay hi purani tasveerein load karein
