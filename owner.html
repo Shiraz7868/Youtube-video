@@ -64,14 +64,20 @@
         const generateBtn = document.getElementById('generate-link-btn');
         const tokenList = document.getElementById('token-list');
 
+        // --- Image Management Logic (Supabase Storage ke liye) ---
         fetchBtn.addEventListener('click', loadImages);
+
         clearBtn.addEventListener('click', async () => {
             if (!confirm("Are you sure you want to delete ALL images permanently?")) return;
             gallery.innerHTML = "<p>Deleting all images...</p>";
             const { data: files, error } = await supabaseClient.storage.from('uploads').list();
             if (error) return alert("Error listing files: " + error.message);
             const fileNames = files.map(file => file.name).filter(name => name !== '.emptyFolderPlaceholder');
-            if(fileNames.length === 0) return alert("No images to delete.");
+            if(fileNames.length === 0) {
+                alert("No images to delete.");
+                loadImages(); // Refresh the view
+                return;
+            }
             const { error: deleteError } = await supabaseClient.storage.from('uploads').remove(fileNames);
             if (deleteError) return alert("Error deleting files: " + deleteError.message);
             alert("All images deleted successfully!");
@@ -80,6 +86,7 @@
 
         async function loadImages() {
             gallery.innerHTML = '<p>Loading...</p>';
+            // Aapke bucket ka naam 'uploads' hona chahiye
             const { data, error } = await supabaseClient.storage.from('uploads').list('', { sortBy: { column: 'created_at', order: 'desc' } });
             if (error) return gallery.innerHTML = `<p>Error: ${error.message}</p>`;
             gallery.innerHTML = '';
@@ -99,6 +106,7 @@
             }
         }
 
+        // --- Guest Link Management Logic (Ab yeh kaam karega) ---
         function generateToken() {
             return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         }
@@ -157,6 +165,7 @@
             }
         });
 
+        // Initial load
         loadTokens();
     </script>
 </body>
