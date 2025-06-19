@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest View - Captured Images</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        h1 { text-align: center; color: #333; }
+        #message-area { text-align: center; padding: 50px; font-size: 24px; color: #dc3545; font-weight: bold; }
+        #image-gallery { display: none; flex-wrap: wrap; gap: 15px; justify-content: center; }
+        .img-container { border: 2px solid #ddd; padding: 5px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        img { max-width: 300px; height: auto; display: block; border-radius: 4px;}
+    </style>
+</head>
+<body>
+    <h1>Captured Images (Guest View)</h1>
+    <div id="message-area">Verifying Access...</div>
+    <div id="image-gallery"></div>
+
+    <script>
+        // === AAPKI KEYS YAHAN ADD KAR DI GAYI HAIN ===
+        const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const gallery = document.getElementById('image-gallery');
+        const messageArea = document.getElementById('message-area');
+
+        async function verifyAndLoadImages() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            if (!token) { messageArea.textContent = 'Access Denied: Link is invalid.'; return; }
+            
+            const { data, error } = await supabase.from('guest_tokens').select('is_active').eq('token', token).single();
+            if (error || !data) { messageArea.textContent = 'Access Denied: Link does not exist.'; return; }
+            if (!data.is_active) { messageArea.textContent = 'Access Denied: This link has been deactivated.'; return; }
+            
+            messageArea.style.display = 'none';
+            gallery.style.display = 'flex';
+            loadImages();
+        }
+
+        async function loadImages() {
+            // Hum yeh assume kar rahe hain ke aapka storage bucket 'uploads' hai.
+            const { data, error } = await supabase.storage.from('uploads').list('', { sortBy: { column: 'created_at', order: 'desc' } });
+            if (error) { console.error(error); gallery.innerHTML = `<p>Error loading images.</p>`; return; }
+            
+            gallery.innerHTML = '';
+            if (data.length === 0) { gallery.innerHTML = '<p>No images found yet.</p>'; return; }
+            
+            data.forEach(file => {
+                if (file.name !== '.emptyFolderPlaceholder') { // Placeholder ko ignore karein
+                    const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(file.name);
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'img-container';
+                    const imgElement = document.createElement('img');
+                    imgElement.src = publicUrl;
+                    imgContainer.appendChild(imgElement);
+                    gallery.appendChild(imgContainer);
+                }
+            });
+        }
+        
+        verifyAndLoadImages();
+    </script>
+</body>
+</html>
