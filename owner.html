@@ -3,117 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Owner's Panel - Captured Images</title>
-    <!-- Supabase Library v2 ko import kiya gaya hai -->
+    <title>Owner's Panel - Super Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Poppins', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        h1 { text-align: center; color: #1c1e21; }
-        #controls { text-align: center; margin-bottom: 20px; }
-        #clear-btn { background-color: #ff4d4f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
-        #clear-btn:hover { background-color: #d63335; }
-        #image-gallery { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-        .img-container { position: relative; border: 1px solid #ddd; padding: 5px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
-        .img-container img { max-width: 320px; display: block; border-radius: 4px; }
-        .img-timestamp { position: absolute; bottom: 5px; left: 5px; background-color: rgba(0, 0, 0, 0.6); color: white; padding: 3px 6px; font-size: 12px; border-radius: 4px; }
-        .no-images { font-size: 18px; color: #666; text-align: center; width: 100%; margin-top: 50px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        h1, h2 { text-align: center; color: #333; }
+        .section { max-width: 900px; margin: 25px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .controls { text-align: center; margin-bottom: 20px; }
+        button { padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; border: none; margin: 5px; transition: background-color 0.2s; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        #image-gallery { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; min-height: 100px; background: #fdfdfd; padding: 10px; border-radius: 4px; }
+        .img-container { border: 2px solid #ddd; padding: 5px; background: white; }
+        img { width: 250px; height: auto; display: block; }
+        
+        .token-list { list-style: none; padding: 0; }
+        .token-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; gap: 10px; }
+        .token-item span { word-break: break-all; font-family: 'Courier New', Courier, monospace; background: #eee; padding: 5px; border-radius: 4px; flex-grow: 1; }
+        .token-controls { display: flex; align-items: center; gap: 10px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #28a745; }
+        input:checked + .slider:before { transform: translateX(26px); }
     </style>
 </head>
 <body>
 
-    <h1>Captured Images Panel (Live)</h1>
-    <div id="controls">
-        <button id="clear-btn">Clear All Images</button>
+    <h1>Super Admin Panel</h1>
+    
+    <div class="section">
+        <h2>Captured Images</h2>
+        <div class="controls">
+            <button id="fetch-button" class="btn-primary">Fetch Images</button>
+            <button id="clear-button" class="btn-danger">Clear All Images</button>
+        </div>
+        <div id="image-gallery"><p>Click 'Fetch Images' to load.</p></div>
     </div>
-    <div id="image-gallery">
-        <p class="no-images">Listening for new images...</p>
+
+    <div class="section">
+        <h2>Guest Access Management</h2>
+        <div class="controls">
+            <button id="generate-link-btn" class="btn-primary">Generate New Guest Link</button>
+        </div>
+        <ul id="token-list" class="token-list"></ul>
     </div>
 
     <script>
+        // === AAPKI KEYS YAHAN BHI ADD KAR DI GAYI HAIN ===
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
-        
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const fetchBtn = document.getElementById('fetch-button');
+        const clearBtn = document.getElementById('clear-button');
         const gallery = document.getElementById('image-gallery');
+        const generateBtn = document.getElementById('generate-link-btn');
+        const tokenList = document.getElementById('token-list');
 
-        // Function to display an image with timestamp
-        function displayImage(imageObject) {
-            if (!imageObject || !imageObject.image_data) return;
-            
-            // "Listening..." message ko hatayein
-            const noImagesMessage = gallery.querySelector('.no-images');
-            if (noImagesMessage) {
-                noImagesMessage.remove();
-            }
+        fetchBtn.addEventListener('click', loadImages);
+        clearBtn.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to delete ALL images permanently?")) return;
+            gallery.innerHTML = "<p>Deleting all images...</p>";
+            const { data: files, error } = await supabase.storage.from('uploads').list();
+            if (error) return alert("Error listing files: " + error.message);
+            if (files.length === 0) return alert("No images to delete.");
+            const fileNames = files.map(file => file.name).filter(name => name !== '.emptyFolderPlaceholder');
+            if(fileNames.length === 0) return alert("No images to delete.");
+            const { error: deleteError } = await supabase.storage.from('uploads').remove(fileNames);
+            if (deleteError) return alert("Error deleting files: " + deleteError.message);
+            alert("All images deleted successfully!");
+            loadImages();
+        });
 
-            const imgContainer = document.createElement('div');
-            imgContainer.className = 'img-container';
-            
-            const imgElement = document.createElement('img');
-            imgElement.src = imageObject.image_data;
-            
-            const timestamp = new Date(imageObject.created_at).toLocaleString();
-            const timestampElement = document.createElement('div');
-            timestampElement.className = 'img-timestamp';
-            timestampElement.textContent = timestamp;
-
-            imgContainer.appendChild(imgElement);
-            imgContainer.appendChild(timestampElement);
-            
-            gallery.prepend(imgContainer); // Nayi tasveer sab se upar dikhayein
-        }
-
-        // Function to load existing images
-        async function loadInitialImages() {
-            const { data, error } = await supabaseClient
-                .from('images')
-                .select('image_data, created_at')
-                .order('created_at', { ascending: false });
-                
-            if (error) {
-                console.error('Error loading images:', error);
-                return;
-            }
-            if (data && data.length > 0) {
-                 gallery.innerHTML = ''; // Sirf tab saaf karein jab data ho
-                 data.forEach(item => displayImage(item));
+        async function loadImages() {
+            gallery.innerHTML = '<p>Loading...</p>';
+            const { data, error } = await supabase.storage.from('uploads').list('', { sortBy: { column: 'created_at', order: 'desc' } });
+            if (error) return gallery.innerHTML = `<p>Error: ${error.message}</p>`;
+            gallery.innerHTML = '';
+            if (data.filter(f => f.name !== '.emptyFolderPlaceholder').length === 0) {
+                gallery.innerHTML = '<p>No images found in storage.</p>';
+            } else {
+                data.forEach(file => {
+                    if (file.name !== '.emptyFolderPlaceholder') {
+                        const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(file.name);
+                        const imgContainer = document.createElement('div');
+                        imgContainer.className = 'img-container';
+                        const imgElement = document.createElement('img');
+                        imgElement.src = publicUrl;
+                        imgContainer.appendChild(imgElement);
+                        gallery.appendChild(imgContainer);
+                    }
+                });
             }
         }
 
-        // Function to handle new images
-        function handleNewImage(payload) {
-            console.log('New image received!', payload);
-            displayImage(payload.new);
+        function generateToken() {
+            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         }
 
-        // Live naye images ke liye listen karein
-        supabaseClient.channel('images')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleNewImage)
-            .subscribe();
+        generateBtn.addEventListener('click', async () => {
+            const newToken = generateToken();
+            const { error } = await supabase.from('guest_tokens').insert({ token: newToken, is_active: true });
+            if (error) return alert("Error: " + error.message);
+            loadTokens();
+        });
+
+        async function loadTokens() {
+            const { data: tokens, error } = await supabase.from('guest_tokens').select('*').order('created_at', { ascending: false });
+            if (error) return console.error(error);
+            tokenList.innerHTML = '';
+            tokens.forEach(token => {
+                const li = document.createElement('li');
+                li.className = 'token-item';
+                li.dataset.id = token.id;
+                li.dataset.token = token.token;
+                const guestLink = `${window.location.origin}/guest.html?token=${token.token}`;
+                li.innerHTML = `
+                    <span>${guestLink}</span>
+                    <div class="token-controls">
+                        <button class="btn-secondary copy-btn">Copy</button>
+                        <label class="switch" title="${token.is_active ? 'Deactivate' : 'Activate'}">
+                            <input type="checkbox" class="status-toggle" ${token.is_active ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                        <button class="btn-danger delete-btn">Delete</button>
+                    </div>
+                `;
+                tokenList.appendChild(li);
+            });
+        }
         
-        // Function to clear all images
-        async function clearAllImages() {
-            const confirmed = confirm("Are you sure you want to delete ALL images? This action cannot be undone.");
-            if (confirmed) {
-                console.log("Deleting all images...");
-                const { error } = await supabaseClient
-                    .from('images')
-                    .delete()
-                    .neq('id', 0); // Delete all rows
-
-                if (error) {
-                    alert("Error deleting images: " + error.message);
-                } else {
-                    alert("All images deleted successfully.");
-                    gallery.innerHTML = '<p class="no-images">All images have been cleared. Listening for new ones...</p>';
+        tokenList.addEventListener('click', async (e) => {
+            const target = e.target;
+            const li = target.closest('.token-item');
+            if (!li) return;
+            const id = li.dataset.id;
+            const token = li.dataset.token;
+            if (target.classList.contains('copy-btn')) {
+                navigator.clipboard.writeText(`${window.location.origin}/guest.html?token=${token}`);
+                alert("Link copied!");
+            }
+            if (target.classList.contains('delete-btn')) {
+                if (confirm("Delete this link permanently?")) {
+                    await supabase.from('guest_tokens').delete().eq('id', id);
+                    loadTokens();
                 }
             }
-        }
+            if (target.classList.contains('status-toggle')) {
+                const isActive = target.checked;
+                await supabase.from('guest_tokens').update({ is_active: isActive }).eq('id', id);
+            }
+        });
 
-        document.getElementById('clear-btn').addEventListener('click', clearAllImages);
-        
-        // Page load hotay hi purani tasveerein load karein
-        loadInitialImages();
+        loadTokens();
     </script>
 </body>
 </html>
