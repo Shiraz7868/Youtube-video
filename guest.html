@@ -6,6 +6,7 @@
     <title>Guest View - Captured Images</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* CSS Waisa hi rahega, koi tabdeeli nahi */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
         h1 { text-align: center; color: #333; }
         #message-area { text-align: center; padding: 50px; font-size: 24px; color: #dc3545; font-weight: bold; }
@@ -20,11 +21,13 @@
     <div id="image-gallery"></div>
 
     <script>
-        // === AAPKI KEYS YAHAN ADD KAR DI GAYI HAIN ===
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+        
+        // === SAHI TAREEQA SUPABASE INITIALIZE KARNE KA ===
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Ab baqi ka code chalega
         const gallery = document.getElementById('image-gallery');
         const messageArea = document.getElementById('message-area');
 
@@ -33,7 +36,7 @@
             const token = params.get('token');
             if (!token) { messageArea.textContent = 'Access Denied: Link is invalid.'; return; }
             
-            const { data, error } = await supabase.from('guest_tokens').select('is_active').eq('token', token).single();
+            const { data, error } = await supabaseClient.from('guest_tokens').select('is_active').eq('token', token).single();
             if (error || !data) { messageArea.textContent = 'Access Denied: Link does not exist.'; return; }
             if (!data.is_active) { messageArea.textContent = 'Access Denied: This link has been deactivated.'; return; }
             
@@ -43,24 +46,24 @@
         }
 
         async function loadImages() {
-            // Hum yeh assume kar rahe hain ke aapka storage bucket 'uploads' hai.
-            const { data, error } = await supabase.storage.from('uploads').list('', { sortBy: { column: 'created_at', order: 'desc' } });
+            const { data, error } = await supabaseClient.storage.from('uploads').list('', { sortBy: { column: 'created_at', order: 'desc' } });
             if (error) { console.error(error); gallery.innerHTML = `<p>Error loading images.</p>`; return; }
             
             gallery.innerHTML = '';
-            if (data.length === 0) { gallery.innerHTML = '<p>No images found yet.</p>'; return; }
-            
-            data.forEach(file => {
-                if (file.name !== '.emptyFolderPlaceholder') { // Placeholder ko ignore karein
-                    const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(file.name);
+            const imageFiles = data.filter(f => f.name !== '.emptyFolderPlaceholder');
+            if (imageFiles.length === 0) {
+                gallery.innerHTML = '<p>No images found yet.</p>';
+            } else {
+                imageFiles.forEach(file => {
+                    const { data: { publicUrl } } = supabaseClient.storage.from('uploads').getPublicUrl(file.name);
                     const imgContainer = document.createElement('div');
                     imgContainer.className = 'img-container';
                     const imgElement = document.createElement('img');
                     imgElement.src = publicUrl;
                     imgContainer.appendChild(imgElement);
                     gallery.appendChild(imgContainer);
-                }
-            });
+                });
+            }
         }
         
         verifyAndLoadImages();
