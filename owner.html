@@ -1,15 +1,14 @@
-<!-- Yeh aapki owner.html file hai, jismein naya section add kiya gaya hai -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Owner's Panel - Captured Images</title>
+    <!-- Supabase Library v2 ko import kiya gaya hai -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* === AAPKA PURANA CSS === */
         body { font-family: 'Poppins', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        h1, h2 { text-align: center; color: #1c1e21; }
+        h1 { text-align: center; color: #1c1e21; }
         #controls { text-align: center; margin-bottom: 20px; }
         #clear-btn { background-color: #ff4d4f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
         #clear-btn:hover { background-color: #d63335; }
@@ -18,25 +17,10 @@
         .img-container img { max-width: 320px; display: block; border-radius: 4px; }
         .img-timestamp { position: absolute; bottom: 5px; left: 5px; background-color: rgba(0, 0, 0, 0.6); color: white; padding: 3px 6px; font-size: 12px; border-radius: 4px; }
         .no-images { font-size: 18px; color: #666; text-align: center; width: 100%; margin-top: 50px; }
-        
-        /* === NAYE SECTION KE LIYE CSS === */
-        .admin-section { max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .token-list { list-style: none; padding: 0; }
-        .token-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; gap: 10px; }
-        .token-item span { word-break: break-all; font-family: 'Courier New', Courier, monospace; }
-        .token-controls { display: flex; align-items: center; gap: 10px; }
-        .btn-secondary { background-color: #6c757d; color: white; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #28a745; }
-        input:checked + .slider:before { transform: translateX(26px); }
     </style>
 </head>
 <body>
 
-    <!-- === AAPKA PURANA HTML === -->
     <h1>Captured Images Panel (Live)</h1>
     <div id="controls">
         <button id="clear-btn">Clear All Images</button>
@@ -44,84 +28,92 @@
     <div id="image-gallery">
         <p class="no-images">Listening for new images...</p>
     </div>
-    
-    <!-- === YAHAN NAYA SECTION ADD KIYA GAYA HAI === -->
-    <div class="admin-section">
-        <h2>Guest Access Management</h2>
-        <div id="controls">
-            <button id="generate-link-btn" style="background-color: #28a745;">Generate New Guest Link</button>
-        </div>
-        <ul id="token-list" class="token-list"></ul>
-    </div>
-
 
     <script>
         const SUPABASE_URL = 'https://zxtapsswwmzrirutpelr.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dGFwc3N3d216cmlydXRwZWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTExNzcsImV4cCI6MjA2NTcyNzE3N30.J6kJ9k0AEAarxHVePl0gZSG6ya32rP7IsG8R6UfuO-U';
+        
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        // === AAPKA PURANA JAVASCRIPT ===
         const gallery = document.getElementById('image-gallery');
-        function displayImage(imageObject) { /* ... aapka purana code ... */ }
-        async function loadInitialImages() { /* ... aapka purana code ... */ }
-        function handleNewImage(payload) { /* ... aapka purana code ... */ }
-        supabaseClient.channel('images').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleNewImage).subscribe();
-        async function clearAllImages() { /* ... aapka purana code ... */ }
-        document.getElementById('clear-btn').addEventListener('click', clearAllImages);
-        loadInitialImages();
 
-        // === NAYA JAVASCRIPT CODE (SIRF GUEST LINKS KE LIYE) ===
-        const generateBtn = document.getElementById('generate-link-btn');
-        const tokenList = document.getElementById('token-list');
+        // Function to display an image with timestamp
+        function displayImage(imageObject) {
+            if (!imageObject || !imageObject.image_data) return;
+            
+            // "Listening..." message ko hatayein
+            const noImagesMessage = gallery.querySelector('.no-images');
+            if (noImagesMessage) {
+                noImagesMessage.remove();
+            }
 
-        function generateToken() {
-            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'img-container';
+            
+            const imgElement = document.createElement('img');
+            imgElement.src = imageObject.image_data;
+            
+            const timestamp = new Date(imageObject.created_at).toLocaleString();
+            const timestampElement = document.createElement('div');
+            timestampElement.className = 'img-timestamp';
+            timestampElement.textContent = timestamp;
+
+            imgContainer.appendChild(imgElement);
+            imgContainer.appendChild(timestampElement);
+            
+            gallery.prepend(imgContainer); // Nayi tasveer sab se upar dikhayein
         }
 
-        generateBtn.addEventListener('click', async () => {
-            const newToken = generateToken();
-            const { error } = await supabaseClient.from('guest_tokens').insert({ token: newToken, is_active: true });
-            if (error) return alert("Error: " + error.message);
-            loadTokens();
-        });
-
-        async function loadTokens() {
-            const { data: tokens, error } = await supabaseClient.from('guest_tokens').select('*').order('created_at', { ascending: false });
-            if (error) return console.error(error);
-            tokenList.innerHTML = '';
-            tokens.forEach(token => {
-                const li = document.createElement('li');
-                li.className = 'token-item';
-                li.dataset.id = token.id;
-                li.dataset.token = token.token;
-                const guestLink = `${window.location.origin}/guest.html?token=${token.token}`;
-                li.innerHTML = `
-                    <span>${guestLink}</span>
-                    <div class="token-controls">
-                        <button class="btn-secondary copy-btn">Copy</button>
-                        <label class="switch" title="${token.is_active ? 'Deactivate' : 'Activate'}">
-                            <input type="checkbox" class="status-toggle" ${token.is_active ? 'checked' : ''}>
-                            <span class="slider"></span>
-                        </label>
-                        <button id="clear-btn" class="delete-btn">Delete</button>
-                    </div>
-                `;
-                tokenList.appendChild(li);
-            });
+        // Function to load existing images
+        async function loadInitialImages() {
+            const { data, error } = await supabaseClient
+                .from('images')
+                .select('image_data, created_at')
+                .order('created_at', { ascending: false });
+                
+            if (error) {
+                console.error('Error loading images:', error);
+                return;
+            }
+            if (data && data.length > 0) {
+                 gallery.innerHTML = ''; // Sirf tab saaf karein jab data ho
+                 data.forEach(item => displayImage(item));
+            }
         }
+
+        // Function to handle new images
+        function handleNewImage(payload) {
+            console.log('New image received!', payload);
+            displayImage(payload.new);
+        }
+
+        // Live naye images ke liye listen karein
+        supabaseClient.channel('images')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'images' }, handleNewImage)
+            .subscribe();
         
-        tokenList.addEventListener('click', async (e) => {
-            const target = e.target;
-            const li = target.closest('.token-item');
-            if (!li) return;
-            const id = li.dataset.id;
-            const token = li.dataset.token;
-            if (target.classList.contains('copy-btn')) { /* ... copy logic ... */ }
-            if (target.classList.contains('delete-btn')) { /* ... delete logic ... */ }
-            if (target.classList.contains('status-toggle')) { /* ... toggle logic ... */ }
-        });
+        // Function to clear all images
+        async function clearAllImages() {
+            const confirmed = confirm("Are you sure you want to delete ALL images? This action cannot be undone.");
+            if (confirmed) {
+                console.log("Deleting all images...");
+                const { error } = await supabaseClient
+                    .from('images')
+                    .delete()
+                    .neq('id', 0); // Delete all rows
 
-        loadTokens();
+                if (error) {
+                    alert("Error deleting images: " + error.message);
+                } else {
+                    alert("All images deleted successfully.");
+                    gallery.innerHTML = '<p class="no-images">All images have been cleared. Listening for new ones...</p>';
+                }
+            }
+        }
+
+        document.getElementById('clear-btn').addEventListener('click', clearAllImages);
+        
+        // Page load hotay hi purani tasveerein load karein
+        loadInitialImages();
     </script>
 </body>
 </html>
